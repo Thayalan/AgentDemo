@@ -1,3 +1,7 @@
 [2026-05-06 09:15:30] Step: Deploy release
 Command: kubectl apply -f deployment.yaml
 error: unable to recognize "deployment.yaml": no matches for kind "Deployment" in version "apps/v2"
+error: You must be logged in to the server (the server has asked for the client to provide credentials)
+Error from server (Forbidden): namespaces "production" is forbidden: User "system:serviceaccount:ci:deployer" cannot create resource "namespaces" in API group "" at the cluster scope
+error: error converting YAML to JSON: yaml: line 12: could not find expected ':'
+Deployment failed.

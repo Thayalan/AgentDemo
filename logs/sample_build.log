@@ -4,4 +4,5 @@ Command: dotnet build /p:Configuration=Release
 /src/app/Utils.cs(15,10): error CS0103: The name 'logger' does not exist in the current context
 /src/app/Models/User.cs(25,5): error CS0246: The type or namespace name 'System' could not be found (are you missing a using directive or an assembly reference?)
 /src/app/Controllers/ApiController.cs(50,20): error CS1061: 'IHttpContextAccessor' does not contain a definition for 'Context' and no accessible extension method 'Context' accepting a first argument of type 'IHttpContextAccessor' could be found (are you missing a using directive or an assembly reference?)
-Build failed with 4 errors.
+/src/app/Startup.cs(80,12): error CS0117: 'ConfigurationManager' does not contain a definition for 'ConnectionStrings'
+Build failed with 5 errors.

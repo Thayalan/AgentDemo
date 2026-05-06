@@ -1,5 +1,7 @@
 [2026-05-06 09:12:25] Stage: Test suite
 Command: pytest tests/
 E   AssertionError: expected 200 but got 500
+E   RuntimeError: Database connection failed: timeout after 30 seconds
+E   ModuleNotFoundError: No module named 'requests'
 -----------------------------------------------
 FAILED tests/test_api.py::test_status_code

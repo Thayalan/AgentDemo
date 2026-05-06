@@ -2,7 +2,7 @@
 
 This report summarizes the primary CI/CD failures detected in sample logs, including the failed stage, error details, root cause, and recommended fixes.
 
-Generated: 2026-05-06 11:19 IST
+Generated: 2026-05-06 11:35 IST
 
 ## Sample Build - Error 1
 
@@ -49,5 +49,17 @@ Generated: 2026-05-06 11:19 IST
 - **Line number:** 50
 - **Error snippet:** `/src/app/Controllers/ApiController.cs(50,20): error CS1061: 'IHttpContextAccessor' does not contain a definition for 'Context' and no accessible extension method 'Context' accepting a first argument of type 'IHttpContextAccessor' could be found (are you missing a using directive or an assembly reference?)`
 - **Root cause:** Code syntax or formatting issue in the failing source path.
+- **Suggested fixes:** Use a member that actually exists on the object type or change the object to the correct type. Check for missing extension methods, imports, or incorrect API usage.
+- **Confidence:** 40%
+
+## Sample Build - Error 5
+
+**Summary:** Detected a failure in the Build application stage with an error message from the log.
+
+- **Failed stage:** Build application
+- **Error type:** CS0117
+- **Line number:** 80
+- **Error snippet:** `/src/app/Startup.cs(80,12): error CS0117: 'ConfigurationManager' does not contain a definition for 'ConnectionStrings'`
+- **Root cause:** The failure originates from the reported error message or the failing command.
 - **Suggested fixes:** Use a member that actually exists on the object type or change the object to the correct type. Check for missing extension methods, imports, or incorrect API usage.
 - **Confidence:** 40%
