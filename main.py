@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 import datetime
+from collections import Counter
 
 LOG_DIR = Path("logs")
 OUTPUT_DIR = Path("output")
@@ -8,9 +9,11 @@ OUTPUT_DIR = Path("output")
 ERROR_PATTERNS = [
     re.compile(r"(?P<file>[^\s:]+\.cs)\((?P<line>\d+),(?P<col>\d+)\): error (?P<code>CS\d+): (?P<message>.+)", re.IGNORECASE),
     re.compile(r"(?P<file>[^\s:]+\.py):(?P<line>\d+): (?P<error>.+)", re.IGNORECASE),
+    re.compile(r"(?P<file>[^\s:]+\.ts):(?P<line>\d+):(?P<col>\d+) - error (?P<code>TS\d+): (?P<message>.+)", re.IGNORECASE),
     re.compile(r"Error from server \((?P<code>[A-Za-z]+)\): (?P<message>.+)", re.IGNORECASE),
     re.compile(r"RuntimeError:\s*(?P<message>.+)", re.IGNORECASE),
     re.compile(r"error:\s*(?P<message>.+)", re.IGNORECASE),
+    re.compile(r"\[ERROR\].*\s*(?P<message>.+)", re.IGNORECASE),
     re.compile(r"failed to (?P<message>.+)", re.IGNORECASE),
     re.compile(r"AssertionError:\s*(?P<message>.+)", re.IGNORECASE),
 ]
@@ -19,6 +22,7 @@ STAGE_PATTERNS = [
     re.compile(r"Step[:\s]+(?P<stage>.+)", re.IGNORECASE),
     re.compile(r"Stage[:\s]+(?P<stage>.+)", re.IGNORECASE),
     re.compile(r"Job [:\s]+(?P<stage>.+)", re.IGNORECASE),
+    re.compile(r"Starting (?P<stage>.+)", re.IGNORECASE),
     re.compile(r"##\[error\]Agent\.Provisioning.*", re.IGNORECASE),
 ]
 
@@ -93,7 +97,7 @@ def infer_root_cause(error_text: str):
         return "Code syntax or formatting issue in the failing source path."
     if "null reference" in text or "none" in text:
         return "Null or undefined value accessed during execution."
-    if "failed to build" in text or "error cs" in text:
+    if "failed to build" in text or "error cs" in text or "error ts" in text or "Compilation failed" in text:
         return "Build configuration or source compilation failure."
     if "forbidden" in text or "error from server" in text:
         return "Kubernetes permission or RBAC access failure during deployment."
@@ -122,10 +126,10 @@ def suggest_fix(error_text: str, error_code: str = ""):
             "Add the missing namespace import or assembly/package reference for the type, "
             "restore dependencies, and rebuild the solution."
         )
-    if "cs1061" in code or "does not contain a definition for" in text:
+    if "TS2339" in code or "Property" in text and "does not exist" in text:
         return (
-            "Use a member that actually exists on the object type or change the object to the correct type. "
-            "Check for missing extension methods, imports, or incorrect API usage."
+            "Confirm the property name is spelled correctly and exists on the type. "
+            "Check for typos in the property access, or add the missing property to the type definition."
         )
     if "apps/v2" in text:
         return (
@@ -174,14 +178,14 @@ def suggest_fix(error_text: str, error_code: str = ""):
 
 def confidence_score(error_text: str):
     text = error_text.lower()
-    if any(key in text for key in ["failed to build", "cs", "syntax", "assertionerror", "null reference"]):
+    if any(key in text for key in ["failed to build", "cs", "ts", "syntax", "assertionerror", "null reference", "Compilation failed"]):
         return CONFIDENCE_BASE["high"]
     if any(key in text for key in ["error:", "failed", "timeout"]):
         return CONFIDENCE_BASE["medium"]
     return CONFIDENCE_BASE["low"]
 
 
-def build_report(entries, output_path: Path):
+def build_report(entries, output_path: Path, log_name: str, stage: str):
     output_path.parent.mkdir(parents=True, exist_ok=True)
     title = "CI/CD Error Triage Report"
     summary = (
@@ -189,25 +193,34 @@ def build_report(entries, output_path: Path):
         "including the failed stage, error details, root cause, and recommended fixes."
     )
     ist = datetime.timezone(datetime.timedelta(hours=5, minutes=30), name="IST")
+    root_causes = Counter(entry["root_cause"] for entry in entries)
+    most_common_root = root_causes.most_common(1)[0][0] if root_causes else "N/A"
+
     lines = [
         f"# {title}",
         "",
         summary,
         "",
         f"Generated: {datetime.datetime.now(ist):%Y-%m-%d %H:%M IST}",
+        "",
+        "## Log Summary",
+        "",
+        f"- **Log file:** {log_name}",
+        f"- **Failed stage:** {stage}",
+        f"- **Detected errors:** {len(entries)}",
+        f"- **Most common root cause:** {most_common_root}",
+        "",
+        "## Error Details",
         ""
     ]
 
     if not entries:
-        lines.extend(["## Summary", "", "No failures were detected in the input log files."])
+        lines.extend(["No failures were detected in the input log files."])
     else:
-        for entry in entries:
+        for index, entry in enumerate(entries, start=1):
             lines.extend([
-                f"## {entry['title']}",
+                f"### Error {index}",
                 "",
-                f"**Summary:** {entry['summary']}",
-                "",
-                f"- **Failed stage:** {entry['failed_stage']}",
                 f"- **Error type:** {entry['error_type']}",
                 f"- **Line number:** {entry['line_number']}",
                 f"- **Error snippet:** `{entry['error_snippet']}`",
@@ -221,10 +234,44 @@ def build_report(entries, output_path: Path):
     print(f"Wrote triage report to {output_path}")
 
 
-def analyze_log_file(path: Path):
-    raw_lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+def analyze_log_text(log_name: str, content: str):
+    raw_lines = content.splitlines()
     if not raw_lines:
         return []
+
+    stage = detect_stage(raw_lines)
+    error_entries = parse_errors(raw_lines)
+    if not error_entries:
+        return []
+
+    results = []
+    for index, error_data in enumerate(error_entries, start=1):
+        raw_message = error_data["raw_message"]
+        root_cause = infer_root_cause(raw_message)
+        suggestion = suggest_fix(raw_message, error_data["error_type"])
+        confidence = confidence_score(raw_message)
+        title = log_name.replace("_", " ").replace(".log", "").title()
+        if len(error_entries) > 1:
+            title = f"{title} - Error {index}"
+
+        results.append({
+            "title": title,
+            "summary": f"Detected a failure in the {stage} stage with an error message from the log.",
+            "failed_stage": stage,
+            "error_type": error_data["error_type"],
+            "line_number": error_data["line_number"],
+            "error_snippet": error_data["error_snippet"],
+            "root_cause": root_cause,
+            "suggested_fixes": suggestion,
+            "confidence": confidence,
+        })
+
+    return results
+
+
+def analyze_log_file(path: Path):
+    content = path.read_text(encoding="utf-8", errors="ignore")
+    return analyze_log_text(path.name, content)
 
     stage = detect_stage(raw_lines)
     error_entries = parse_errors(raw_lines)
@@ -270,7 +317,7 @@ def main():
             continue
 
         report_path = report_filename_for_stage(results[0]["failed_stage"])
-        build_report(results, report_path)
+        build_report(results, report_path, log_path.name, results[0]["failed_stage"])
 
 
 if __name__ == "__main__":
