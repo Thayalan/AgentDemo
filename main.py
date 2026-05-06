@@ -8,6 +8,8 @@ OUTPUT_DIR = Path("output")
 ERROR_PATTERNS = [
     re.compile(r"(?P<file>[^\s:]+\.cs)\((?P<line>\d+),(?P<col>\d+)\): error (?P<code>CS\d+): (?P<message>.+)", re.IGNORECASE),
     re.compile(r"(?P<file>[^\s:]+\.py):(?P<line>\d+): (?P<error>.+)", re.IGNORECASE),
+    re.compile(r"Error from server \((?P<code>[A-Za-z]+)\): (?P<message>.+)", re.IGNORECASE),
+    re.compile(r"RuntimeError:\s*(?P<message>.+)", re.IGNORECASE),
     re.compile(r"error:\s*(?P<message>.+)", re.IGNORECASE),
     re.compile(r"failed to (?P<message>.+)", re.IGNORECASE),
     re.compile(r"AssertionError:\s*(?P<message>.+)", re.IGNORECASE),
@@ -30,6 +32,10 @@ SUGGESTION_MAP = {
     "type or namespace name": "Add the required namespace import or package reference for the missing type, then rebuild.",
     "does not exist in the current context": "Confirm the symbol is declared in the current scope and spelled correctly, or initialize it before use.",
     "unable to recognize": "Verify manifest syntax, API version, and resource kind before reapplying the Kubernetes manifest.",
+    "forbidden": "Verify Kubernetes RBAC permissions and service account access for the target namespace or cluster resource.",
+    "error from server": "Inspect the server response, validate resource permissions, and correct the manifest or access policies.",
+    "database connection failed": "Verify database connectivity, credentials, and network access from the CI environment.",
+    "runtimeerror": "Inspect the runtime exception, dependency state, and environment configuration to fix the underlying failure.",
 }
 
 CONFIDENCE_BASE = {
@@ -89,6 +95,10 @@ def infer_root_cause(error_text: str):
         return "Null or undefined value accessed during execution."
     if "failed to build" in text or "error cs" in text:
         return "Build configuration or source compilation failure."
+    if "forbidden" in text or "error from server" in text:
+        return "Kubernetes permission or RBAC access failure during deployment."
+    if "database connection failed" in text or "runtimeerror" in text:
+        return "A runtime dependency or environment issue prevented the test from completing."
     if "timeout" in text:
         return "Long-running step exceeded its allowed execution time."
     return "The failure originates from the reported error message or the failing command."
@@ -131,6 +141,21 @@ def suggest_fix(error_text: str, error_code: str = ""):
         return (
             "Review the expected value versus the actual result and fix the test or application output. "
             "Adjust the assertion or the data setup so the observed behavior matches the expected behavior."
+        )
+    if "forbidden" in text:
+        return (
+            "Review the service account and RBAC bindings used by the CI pipeline. "
+            "Grant the required namespace or cluster permissions before retrying the deployment."
+        )
+    if "error from server" in text:
+        return (
+            "Inspect the server response and the requested Kubernetes resource. "
+            "Correct the manifest and access policy, then reapply the manifest."
+        )
+    if "database connection failed" in text or "runtimeerror" in text:
+        return (
+            "Verify database availability, connection settings, and credentials in the CI environment. "
+            "Resolve the underlying runtime exception before rerunning the test suite."
         )
     if "timeout" in text:
         return (
