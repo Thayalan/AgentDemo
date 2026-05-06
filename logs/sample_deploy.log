@@ -1,0 +1,3 @@
+[2026-05-06 09:15:30] Step: Deploy release
+Command: kubectl apply -f deployment.yaml
+error: unable to recognize "deployment.yaml": no matches for kind "Deployment" in version "apps/v2"

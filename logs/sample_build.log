@@ -1,0 +1,7 @@
+[2026-05-06 09:10:11] Step: Build application
+Command: dotnet build /p:Configuration=Release
+/src/app/Program.cs(42,18): error CS1002: ; expected
+/src/app/Utils.cs(15,10): error CS0103: The name 'logger' does not exist in the current context
+/src/app/Models/User.cs(25,5): error CS0246: The type or namespace name 'System' could not be found (are you missing a using directive or an assembly reference?)
+/src/app/Controllers/ApiController.cs(50,20): error CS1061: 'IHttpContextAccessor' does not contain a definition for 'Context' and no accessible extension method 'Context' accepting a first argument of type 'IHttpContextAccessor' could be found (are you missing a using directive or an assembly reference?)
+Build failed with 4 errors.
