@@ -2,7 +2,7 @@
 
 This report summarizes the primary CI/CD failures detected in sample logs, including the failed stage, error details, root cause, and recommended fixes.
 
-Generated: 2026-05-06 11:35 IST
+Generated: 2026-05-06 11:43 IST
 
 ## Sample Test - Error 1
 
