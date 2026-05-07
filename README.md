@@ -1,3 +1,5 @@
+<img width="1920" height="5149" alt="screencapture-localhost-8501-2026-05-07-10_30_29" src="https://github.com/user-attachments/assets/88f80841-6cae-4108-8c28-61843cf53cd3" />
+
 # CI/CD Log Analyzer
 
 This project reads sample CI/CD log files from the `logs/` folder and generates concise triage reports in Markdown format under the `output/` folder.
